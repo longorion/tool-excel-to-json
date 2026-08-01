@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chuyển Excel sang JSON</title>
+    <script src="xlsx.full.min.js"></script> 
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .btn-group { margin: 15px 0; display: flex; gap: 10px; }
+        button { padding: 8px 16px; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        .btn-success { background-color: #28a745; }
+        .btn-info { background-color: #17a2b8; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 4px; max-height: 300px; overflow-y: auto; }
+        .error { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Tool Excel & JSON</h2>
+    
+    <!-- Nút bấm tạo file Excel mẫu -->
+    <button id="createSampleBtn" class="btn-info">Tải file Excel mẫu (.xlsx)</button>
+    <hr>
+
+    <h3>Upload & Chuyển đổi</h3>
+    <input type="file" id="excelFile" accept=".xlsx, .xls" />
+    <br><br>
+    <button id="downloadBtn" class="btn-success" disabled>Tải về JSON</button>
+
+    <h3>Xem trước JSON (Preview):</h3>
+    <pre id="jsonOutput">Vui lòng chọn file Excel để xem dữ liệu...</pre>
+</div>
+
+<script>
+    // 1. TỰ ĐỘNG TẠO VÀ TẢI FILE EXCEL MẪU
+    document.getElementById('createSampleBtn').addEventListener('click', function () {
+        if (typeof XLSX === 'undefined') {
+            alert("Chưa tải được thư viện SheetJS! Kiểm tra lại file xlsx.full.min.js");
+            return;
+        }
+
+        // Dữ liệu mẫu
+        const sampleData = [
+            { "ID": 1, "Họ và Tên": "Nguyễn Văn A", "Tuổi": 25, "Email": "nguyenvana@gmail.com", "Thành phố": "Hà Nội" },
+            { "ID": 2, "Họ và Tên": "Trần Thị B", "Tuổi": 30, "Email": "tranthib@gmail.com", "Thành phố": "TP.HCM" },
+            { "ID": 3, "Họ và Tên": "Lê Văn C", "Tuổi": 22, "Email": "levanc@gmail.com", "Thành phố": "Đà Nẵng" }
+        ];
+
+        // Tạo Sheet từ dữ liệu mẫu
+        const worksheet = XLSX.utils.json_to_sheet(sampleData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "DanhSach");
+
+        // Xuất ra file Excel chuẩn .xlsx
+        XLSX.writeFile(workbook, "file_mau_test.xlsx");
+    });
+
+    // 2. ĐỌC FILE EXCEL BẠN UPLOAD VÀ CHUYỂN SANG JSON
+    let jsonResult = null;
+
+    document.getElementById('excelFile').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        const output = document.getElementById('jsonOutput');
+        const btn = document.getElementById('downloadBtn');
+
+        if (!file) return;
+
+        if (typeof XLSX === 'undefined') {
+            output.innerHTML = '<span class="error">LỖI: Chưa tải được thư viện SheetJS!</span>';
+            btn.disabled = true;
+            return;
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = function (e) {
+            try {
+                const data = e.target.result;
+                // Sử dụng type 'binary' chuẩn xác hơn
+                const workbook = XLSX.read(data, { type: 'binary' });
+
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+
+                jsonResult = XLSX.utils.sheet_to_json(worksheet);
+
+                if (jsonResult.length === 0) {
+                    output.textContent = "File Excel trống hoặc không có dữ liệu.";
+                    btn.disabled = true;
+                    return;
+                }
+
+                output.textContent = JSON.stringify(jsonResult, null, 2);
+                btn.disabled = false;
+            } catch (err) {
+                console.error(err);
+                output.innerHTML = '<span class="error">Lỗi đọc file: ' + err.message + '</span>';
+                btn.disabled = true;
+            }
+        };
+
+        reader.readAsBinaryString(file);
+    });
+
+    // 3. TẢI FILE JSON VỀ MÁY
+    document.getElementById('downloadBtn').addEventListener('click', function () {
+        if (!jsonResult) return;
+
+        const jsonString = JSON.stringify(jsonResult, null, 2);
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "data.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+</script>
+
+</body>
+</html>
